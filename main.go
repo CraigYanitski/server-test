@@ -50,9 +50,9 @@ func main() {
 
     // Define multiplexer handle
     mux.Handle("/app/", apiCfg.middlewareMetricsInc(appFileServer))
-    mux.HandleFunc("GET /healthz", handlerHealthz)
-    mux.HandleFunc("GET /metrics", apiCfg.handlerMetrics)
-    mux.HandleFunc("POST /reset", http.HandlerFunc(apiCfg.handlerReset))
+    mux.HandleFunc("GET /api/healthz", handlerHealthz)
+    mux.HandleFunc("GET /api/metrics", apiCfg.handlerMetrics)
+    mux.HandleFunc("POST /api/reset", http.HandlerFunc(apiCfg.handlerReset))
 
     // Define server
     port := "8080"
