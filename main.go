@@ -9,8 +9,10 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/CraigYanitski/server-test/internal/database"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -29,6 +31,11 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
+    // check if there is admin access
+    if !CheckAdmin(w) {
+        return
+    }
+    // serve metrics HTML
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
     w.WriteHeader(200)
     hits := cfg.fileserverHits.Load()
@@ -46,10 +53,16 @@ func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
+    // check if there is admin access
+    if !CheckAdmin(w) {
+        return
+    }
     // reset server hits
     cfg.fileserverHits.Store(0)
     w.WriteHeader(200)
     w.Write([]byte("Hits successfully reset!"))
+    // reset users
+    cfg.dbQueries.ResetUsers(r.Context())
 }
 
 func handlerHealthz(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +140,38 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(dat)
 }
 
+type User struct {
+    ID         uuid.UUID  `json:"id"`
+    CreatedAt  time.Time  `json:"created_at"`
+    UpdatedAt  time.Time  `json:"updated_at"`
+    Email      string     `json:"email"`
+}
+
+func (cfg *apiConfig) CreateUser(w http.ResponseWriter, r *http.Request) {
+    decoder := json.NewDecoder(r.Body)
+    u := &User{}
+    err := decoder.Decode(u)
+    if (err != nil) || (u.Email == "") {
+        respondWithError(w, http.StatusInternalServerError, "error decoding JSON", err)
+        return
+    }
+    user, err := cfg.dbQueries.CreateUser(r.Context(), u.Email)
+    if err != nil {
+        respondWithError(w, http.StatusInternalServerError, "error creating user", err)
+    }
+    respondWithJSON(w, http.StatusCreated, User(user))
+    return
+}
+
+func CheckAdmin(w http.ResponseWriter) bool {
+    platform := os.Getenv("PLATFORM")
+    if platform != "dev" {
+        respondWithError(w, http.StatusForbidden, "No admin access", nil)
+        return false
+    }
+    return true
+}
+
 func main() {
     // Load environment variables
     godotenv.Load()
@@ -160,6 +205,7 @@ func main() {
     
     mux.HandleFunc("GET /api/healthz", handlerHealthz)
     mux.HandleFunc("POST /api/validate_chirp", http.HandlerFunc(validateChirp))
+    mux.HandleFunc("POST /api/users", http.HandlerFunc(apiCfg.CreateUser))
     
     mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
     mux.HandleFunc("POST /admin/reset", http.HandlerFunc(apiCfg.handlerReset))
