@@ -1,16 +1,23 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
+
+	"github.com/CraigYanitski/server-test/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
     fileserverHits atomic.Int32
+    dbQueries      *database.Queries
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -121,6 +128,18 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 func main() {
+    // Load environment variables
+    godotenv.Load()
+    dbURL := os.Getenv("DB_URL")
+    db, err := sql.Open("postgres", dbURL)
+    if err != nil {
+        panic(err)
+    }
+    dbQueries := database.New(db)
+
+    // Create API config with DB queries
+    apiCfg := apiConfig{dbQueries: dbQueries}
+
     // Initialise multiplexer
     mux := http.NewServeMux()
 
@@ -132,8 +151,6 @@ func main() {
         Addr:    ":" + port, 
         Handler: mux,
     }
-
-    apiCfg := apiConfig{}
 
     // Define handlers
     appFileServer := http.StripPrefix("/app", http.FileServer(http.Dir(fsPath)))
@@ -149,7 +166,7 @@ func main() {
 
     // Start server
     fmt.Printf("Serving files from / on port: %v\n", port)
-    err := server.ListenAndServe()
+    err = server.ListenAndServe()
     if err != nil {
         panic(err)
     }
