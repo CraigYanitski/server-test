@@ -5,9 +5,8 @@ import (
     "os"
 )
 
-func CheckAdmin(w http.ResponseWriter) bool {
-    platform := os.Getenv("PLATFORM")
-    if platform != "dev" {
+func  (cfg *apiConfig) CheckAdmin(w http.ResponseWriter) bool {
+    if cfg.platform != "dev" {
         respondWithError(w, http.StatusForbidden, "No admin access", nil)
         return false
     }
