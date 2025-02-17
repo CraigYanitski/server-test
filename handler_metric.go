@@ -15,7 +15,7 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 
 func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
     // check if there is admin access
-    if !CheckAdmin(w) {
+    if !cfg.CheckAdmin(w) {
         return
     }
     // serve metrics HTML

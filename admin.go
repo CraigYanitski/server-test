@@ -2,7 +2,6 @@ package main
 
 import (
     "net/http"
-    "os"
 )
 
 func  (cfg *apiConfig) CheckAdmin(w http.ResponseWriter) bool {

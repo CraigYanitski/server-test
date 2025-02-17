@@ -6,7 +6,7 @@ import (
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
     // check if there is admin access
-    if !CheckAdmin(w) {
+    if !cfg.CheckAdmin(w) {
         return
     }
     // reset server hits
