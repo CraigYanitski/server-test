@@ -70,3 +70,37 @@ func CleanChirpBody(body string) string {
     return strings.Join(clean_body, " ")
 }
 
+func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+    id := r.PathValue("chirp_id")
+    if id != "" {
+        chirp_id, err := uuid.Parse(id)
+        if err != nil {
+            respondWithError(w, http.StatusInternalServerError, "invalid chirp ID", err)
+            return
+        }
+        cfg.getSingleChirp(w, r, chirp_id)
+        return
+    }
+    chirps, err := cfg.dbQueries.GetChirps(r.Context())
+    if err != nil {
+        respondWithError(w, http.StatusInternalServerError, "error getting chirp data", err)
+        return
+    }
+    items := []Chirp{}
+    for _, item := range chirps {
+        items = append(items, Chirp(item))
+    }
+    respondWithJSON(w, http.StatusOK, items)
+    return
+}
+
+func (cfg *apiConfig) getSingleChirp(w http.ResponseWriter, r *http.Request, chirp_id uuid.UUID) {
+    chirp, err := cfg.dbQueries.GetChirp(r.Context(), chirp_id)
+    if err != nil {
+        respondWithError(w, http.StatusInternalServerError, "error finding chirp", err)
+        return
+    }
+    respondWithJSON(w, http.StatusOK, Chirp(chirp))
+    return
+}
+

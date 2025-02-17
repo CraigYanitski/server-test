@@ -64,9 +64,12 @@ func main() {
     // API status
     mux.HandleFunc("GET /api/healthz", handlerHealthz)
 
-    // API stuff
-    mux.HandleFunc("POST /api/chirps", http.HandlerFunc(apiCfg.handlerCreateChirp))
+    // API users
     mux.HandleFunc("POST /api/users", http.HandlerFunc(apiCfg.handlerCreateUser))
+
+    // API chirps
+    mux.HandleFunc("POST /api/chirps", http.HandlerFunc(apiCfg.handlerCreateChirp))
+    mux.HandleFunc("GET /api/chirps/{chirp_id}", http.HandlerFunc(apiCfg.handlerGetChirps))
     
     // Admin stuff
     mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
