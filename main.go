@@ -61,11 +61,14 @@ func main() {
     // Define multiplexer handle
     mux.Handle("/app/", apiCfg.middlewareMetricsInc(appFileServer))
     
+    // API status
     mux.HandleFunc("GET /api/healthz", handlerHealthz)
 
-    mux.HandleFunc("POST /api/chirps", http.HandlerFunc(handlerSendChirp))
+    // API stuff
+    mux.HandleFunc("POST /api/chirps", http.HandlerFunc(apiCfg.handlerCreateChirp))
     mux.HandleFunc("POST /api/users", http.HandlerFunc(apiCfg.handlerCreateUser))
     
+    // Admin stuff
     mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
     mux.HandleFunc("POST /admin/reset", http.HandlerFunc(apiCfg.handlerReset))
 
