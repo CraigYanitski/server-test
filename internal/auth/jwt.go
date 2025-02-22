@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,7 +18,7 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
             Subject: userID.String(),
         },
     )
-    JWT, err := token.SignedString(tokenSecret)
+    JWT, err := token.SignedString([]byte(tokenSecret))
     if err != nil {
         return "", err
     }
@@ -25,20 +26,23 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
 }
 
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
-    claims := jwt.MapClaims{}
-    _, err := jwt.ParseWithClaims(
+    claims := &jwt.MapClaims{}
+    token, err := jwt.ParseWithClaims(
         tokenString, 
         claims, 
-        func(t *jwt.Token) (interface{}, error) {
+        func(token *jwt.Token) (interface{}, error) {
             return []byte(tokenSecret), nil
         },
     )
     if err != nil {
-        return uuid.New(), err
+        return uuid.New(), fmt.Errorf("error parsing JWT during validation: %s", err)
+    }
+    if !token.Valid {
+        return uuid.New(), fmt.Errorf("error: invalid token")
     }
     user, err := claims.GetSubject()
     if err != nil {
-        return uuid.New(), err
+        return uuid.New(), fmt.Errorf("error getting claims during validation: %s", err)
     }
     return uuid.Parse(user)
 }
