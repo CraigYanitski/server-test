@@ -2,6 +2,8 @@ package auth
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -45,5 +47,14 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
         return uuid.New(), fmt.Errorf("error getting claims during validation: %s", err)
     }
     return uuid.Parse(user)
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+    a, ok := headers["Authorization"]
+    if ok {
+        token := strings.TrimSpace(strings.Trim(a[0], "Bearer"))
+        return token, nil
+    }
+    return "", fmt.Errorf("error: no JWT in header")
 }
 

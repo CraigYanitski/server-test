@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -50,6 +51,23 @@ func TestJWTValidationFail(t *testing.T) {
     _, err = ValidateJWT(jwt, wrongSecret)
     if err == nil {
         t.Fatalf("error in JWT validation: it passed when it should have failed...")
+    }
+}
+
+func TestBearerToken(t *testing.T) {
+    header := http.Header{}
+    header["Authorization"] = []string{"JWT token here"}
+    _, err := GetBearerToken(header)
+    if err != nil {
+        t.Fatal("error: did not find access token in HTTP header")
+    }
+}
+
+func TestBearerTokenFail(t *testing.T) {
+    header := http.Header{}
+    _, err := GetBearerToken(header)
+    if err == nil {
+        t.Fatal("error: found access token when not supplied")
     }
 }
 
