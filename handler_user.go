@@ -85,13 +85,13 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    // determine JWT duration
     var duration time.Duration
     if u.Duration >= int64(time.Hour.Seconds()) || u.Duration == 0 {
         duration = time.Duration(time.Hour.Nanoseconds())
     } else {
         duration = time.Duration(u.Duration*time.Second.Nanoseconds())
     }
-    fmt.Println("duration:", duration)
 
     // search for user in database using their email
     foundUser, err := cfg.dbQueries.GetUserByEmail(r.Context(), u.Email)
@@ -106,10 +106,8 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
         respondWithError(w, http.StatusInternalServerError, "error making JWT token", err)
         return
     }
-    // user := User(foundUser)
-    // if !ok {
-    //     respondWithError(w, http.StatusInternalServerError, "error casting found user struct to JSON user", nil)
-    // }
+
+    // recast database user to validated one, adding JWT
     validUser := &ValidUser{}
     validUser.User = User(foundUser)
     validUser.Token = token
