@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CraigYanitski/server-test/internal/auth"
 	"github.com/CraigYanitski/server-test/internal/database"
 	"github.com/google/uuid"
 )
@@ -21,9 +22,22 @@ type Chirp struct {
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
     // type chirpError struct {Error string `json:"error"`}
 
+    // check user authentication
+    token, err := auth.GetBearerToken(r.Header)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "", err)
+        return
+    }
+    id, err := auth.ValidateJWT(token, cfg.secret)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "", err)
+        return
+    }
+
+    // decode request body
     decoder := json.NewDecoder(r.Body)
     chp := &Chirp{}
-    err := decoder.Decode(chp)
+    err = decoder.Decode(chp)
     if err != nil {
         //fmt.Printf("error decoding a JSON: %s\n", err)
         //w.WriteHeader(500)
@@ -43,7 +57,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
     // create chirp
     params := database.CreateChirpParams{
         Body: cleanChirp, 
-        UserID: chp.UserID,
+        UserID: id,
     }
     chirp, err := cfg.dbQueries.CreateChirp(r.Context(), params)
     if err != nil {

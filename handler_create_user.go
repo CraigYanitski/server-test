@@ -13,16 +13,22 @@ import (
 
 // user struct to unmarshal POST requests
 type InitUser struct {
-    Email     string  `json:"email"`
-    Password  string  `json:"password"`
+    Email     string   `json:"email"`
+    Password  string   `json:"password"`
+    Duration  int64  `json:"expires_in_seconds"`
 }
-// user struct to marshal responses
+// user struct to recast database user and marshal responses
 type User struct {
     ID              uuid.UUID  `json:"id"`
     CreatedAt       time.Time  `json:"created_at"`
     UpdatedAt       time.Time  `json:"updated_at"`
     Email           string     `json:"email"`
     HashedPassword  string     `json:"hashed_password,omitempty"`
+}
+// valid user with additional access token
+type ValidUser struct{
+    User
+    Token  string  `json:"token"`
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +61,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
     user, err := cfg.dbQueries.CreateUser(r.Context(), params)
     if err != nil {
         respondWithError(w, http.StatusInternalServerError, "error creating user", err)
+        return
     }
 
     // empty password field to remove from marshalled JSON
@@ -78,23 +85,46 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    var duration time.Duration
+    if u.Duration >= int64(time.Hour.Seconds()) || u.Duration == 0 {
+        duration = time.Duration(time.Hour.Nanoseconds())
+    } else {
+        duration = time.Duration(u.Duration*time.Second.Nanoseconds())
+    }
+    fmt.Println("duration:", duration)
+
     // search for user in database using their email
-    user, err := cfg.dbQueries.GetUserByEmail(r.Context(), u.Email)
-    if (err != nil) || (user.HashedPassword == "") {
+    foundUser, err := cfg.dbQueries.GetUserByEmail(r.Context(), u.Email)
+    if (err != nil) || (foundUser.HashedPassword == "") {
         respondWithError(w, http.StatusNotFound, "error finding user", err)
+        return
     }
 
+    // make user JWT token
+    token, err := auth.MakeJWT(foundUser.ID, cfg.secret, duration)
+    if err != nil {
+        respondWithError(w, http.StatusInternalServerError, "error making JWT token", err)
+        return
+    }
+    // user := User(foundUser)
+    // if !ok {
+    //     respondWithError(w, http.StatusInternalServerError, "error casting found user struct to JSON user", nil)
+    // }
+    validUser := &ValidUser{}
+    validUser.User = User(foundUser)
+    validUser.Token = token
+
     // check validity of password
-    err = auth.CheckPasswordHash(u.Password, user.HashedPassword)
+    err = auth.CheckPasswordHash(u.Password, validUser.HashedPassword)
     if err != nil {
         respondWithError(w, http.StatusUnauthorized, "password incorrect", err)
         return
     }
 
     // empty password field to remove from marshalled JSON
-    user.HashedPassword = ""
+    validUser.HashedPassword = ""
 
     // respond with user JSON
-    respondWithJSON(w, http.StatusOK, User(user))
+    respondWithJSON(w, http.StatusOK, validUser)
 }
 
