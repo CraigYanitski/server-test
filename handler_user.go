@@ -146,6 +146,58 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
     return
 }
 
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) {
+    // check user authentication
+    token, err := auth.GetBearerToken(r.Header)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "", err)
+        return
+    }
+    id, err := auth.ValidateJWT(token, cfg.secret)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, token, err)
+        return
+    }
+
+    // unmarshal the POST JSON and verify required fields are valid
+    decoder := json.NewDecoder(r.Body)
+    u := &InitUser{}
+    err = decoder.Decode(u)
+    if (err != nil) || (u.Email == "") || (u.Password == "") {
+        respondWithError(
+            w, 
+            http.StatusInternalServerError, 
+            fmt.Sprintf("error decoding JSON with email '%s' and password '%s'", u.Email, u.Password), 
+            err,
+        )
+        return
+    }
+
+    // hash given password
+    hash, err := auth.HashPassword(u.Password)
+    if err != nil {
+        respondWithError(w, http.StatusInternalServerError, "error hashing password", err)
+        return
+    }
+
+    // add user to database
+    params := database.UpdateUserParams{
+        ID: id,
+        Email: u.Email, 
+        HashedPassword: hash,
+    }
+    user, err := cfg.dbQueries.UpdateUser(r.Context(), params)
+    if err != nil {
+        respondWithError(w, http.StatusInternalServerError, "error updating user information", err)
+        return
+    }
+
+    // empty password field to remove from marshalled JSON
+    user.HashedPassword = ""
+    respondWithJSON(w, http.StatusOK, User(user))
+    return
+}
+
 func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
     token, err := auth.GetBearerToken(r.Header)
     if err != nil {
