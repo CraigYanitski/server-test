@@ -7,15 +7,20 @@ VALUES (
     $1,
     $2
 )
-RETURNING *;
+RETURNING * ;
 
 -- name: ResetChirps :exec
-DELETE from chirps;
+DELETE from chirps ;
 
 -- name: GetChirps :many
 SELECT * FROM chirps 
-ORDER BY created_at;
+ORDER BY created_at ;
 
 -- name: GetChirp :one
 SELECT * FROM chirps
-WHERE id=$1;
+WHERE id = $1 ;
+
+-- name: DeleteChirp :one
+DELETE FROM chirps
+WHERE id = $1
+RETURNING * ;
