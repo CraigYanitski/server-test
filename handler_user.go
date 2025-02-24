@@ -15,7 +15,6 @@ import (
 type InitUser struct {
     Email     string   `json:"email"`
     Password  string   `json:"password"`
-    Duration  int64  `json:"expires_in_seconds"`
 }
 // user struct to recast database user and marshal responses
 type User struct {
@@ -28,6 +27,12 @@ type User struct {
 // valid user with additional access token
 type ValidUser struct{
     User
+    Token         string  `json:"token"`
+    RefreshToken  string  `json:"refresh_token"`
+}
+
+// token struct
+type Token struct {
     Token  string  `json:"token"`
 }
 
@@ -86,12 +91,8 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
     }
 
     // determine JWT duration
-    var duration time.Duration
-    if u.Duration >= int64(time.Hour.Seconds()) || u.Duration == 0 {
-        duration = time.Duration(time.Hour.Nanoseconds())
-    } else {
-        duration = time.Duration(u.Duration*time.Second.Nanoseconds())
-    }
+    duration := time.Duration(time.Hour.Nanoseconds())
+    fmt.Println(duration)
 
     // search for user in database using their email
     foundUser, err := cfg.dbQueries.GetUserByEmail(r.Context(), u.Email)
@@ -107,10 +108,28 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    // generate refresh token
+    refreshToken, err := cfg.dbQueries.GetRefreshToken(r.Context(), foundUser.ID)
+    if err != nil {
+        rtExpiresAt := time.Now().AddDate(0, 0, 60)
+        rt, err := auth.MakeRefreshToken()
+        if err != nil {
+            respondWithError(w, http.StatusInternalServerError, "", err)
+            return
+        }
+        params := database.CreateRefreshTokenParams{Token: rt, UserID: foundUser.ID, ExpiresAt: rtExpiresAt}
+        refreshToken, err = cfg.dbQueries.CreateRefreshToken(r.Context(), params)
+        if err != nil {
+            respondWithError(w, http.StatusInternalServerError, "error creating refresh token", err)
+            return
+        }
+    }
+
     // recast database user to validated one, adding JWT
     validUser := &ValidUser{}
     validUser.User = User(foundUser)
     validUser.Token = token
+    validUser.RefreshToken = refreshToken.Token
 
     // check validity of password
     err = auth.CheckPasswordHash(u.Password, validUser.HashedPassword)
@@ -124,5 +143,41 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 
     // respond with user JSON
     respondWithJSON(w, http.StatusOK, validUser)
+    return
+}
+
+func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
+    token, err := auth.GetBearerToken(r.Header)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "error missing token", err)
+        return
+    }
+    refreshToken, err := cfg.dbQueries.GetUserFromRefreshToken(r.Context(), token)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "error invalid entry", err)
+        return
+    }
+    newToken, err := auth.MakeJWT(refreshToken.ID, cfg.secret, time.Hour)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "error unauthorised", err)
+        return
+    }
+    respondWithJSON(w, http.StatusOK, Token{newToken})
+    return
+}
+
+func (cfg *apiConfig) handlerRevoke(w http.ResponseWriter, r *http.Request) {
+    token, err := auth.GetBearerToken(r.Header)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "", err)
+        return
+    }
+    err = cfg.dbQueries.RevokeRefreshToken(r.Context(), token)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "error token not found", err)
+        return
+    }
+    respondWithJSON(w, http.StatusNoContent, nil)
+    return
 }
 

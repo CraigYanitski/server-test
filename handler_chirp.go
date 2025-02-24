@@ -30,7 +30,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
     }
     id, err := auth.ValidateJWT(token, cfg.secret)
     if err != nil {
-        respondWithError(w, http.StatusUnauthorized, "", err)
+        respondWithError(w, http.StatusUnauthorized, token, err)
         return
     }
 
@@ -62,6 +62,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
     chirp, err := cfg.dbQueries.CreateChirp(r.Context(), params)
     if err != nil {
         respondWithError(w, http.StatusInternalServerError, "error creating chirp", err)
+        return
     }
     respondWithJSON(w, http.StatusCreated, Chirp(chirp))
     return
