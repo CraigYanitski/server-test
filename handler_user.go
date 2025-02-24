@@ -91,8 +91,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
     }
 
     // determine JWT duration
-    duration := time.Duration(time.Hour.Nanoseconds())
-    fmt.Println(duration)
+    duration := time.Hour
 
     // search for user in database using their email
     foundUser, err := cfg.dbQueries.GetUserByEmail(r.Context(), u.Email)
