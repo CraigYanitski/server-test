@@ -1,9 +1,10 @@
 package main
 
 import (
-    "encoding/json"
-    "log"
-    "net/http"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
 )
 
 func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
@@ -17,7 +18,7 @@ func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
 		Error string `json:"error"`
 	}
 	respondWithJSON(w, code, errorResponse{
-		Error: msg,
+        Error: fmt.Sprintf("%s: %s", msg, err),
 	})
 }
 
