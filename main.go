@@ -77,6 +77,9 @@ func main() {
     mux.HandleFunc("POST /api/refresh", http.HandlerFunc(apiCfg.handlerRefresh))
     mux.HandleFunc("POST /api/revoke", http.HandlerFunc(apiCfg.handlerRevoke))
 
+    // Polka webhook
+    mux.HandleFunc("POST /api/polka/webhooks", http.HandlerFunc(apiCfg.handlerUpgradeUserToRed))
+
     // API chirps
     mux.HandleFunc("POST /api/chirps", http.HandlerFunc(apiCfg.handlerCreateChirp))
     mux.HandleFunc("GET /api/chirps/{chirp_id}", http.HandlerFunc(apiCfg.handlerGetChirps))
