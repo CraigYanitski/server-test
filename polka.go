@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/CraigYanitski/server-test/internal/auth"
 	"github.com/google/uuid"
 )
 
@@ -17,11 +18,22 @@ type PolkaData struct {
 }
 
 func (cfg *apiConfig) handlerUpgradeUserToRed(w http.ResponseWriter, r *http.Request) {
+    // verify webhook
+    key, err := auth.GetAPIKey(r.Header)
+    // fmt.Println(key, cfg.polkaKey)
+    if err != nil {
+        respondWithError(w, http.StatusUnauthorized, "missing API key", err)
+        return
+    } else if key != cfg.polkaKey {
+        respondWithError(w, http.StatusUnauthorized, "unauthorized API key", err)
+        return
+    }
+
     // unmarshal JSON data
     data := &PolkaData{}
     polkaPost := &PolkaJSON{Data: data}
     decoder := json.NewDecoder(r.Body)
-    err := decoder.Decode(polkaPost)
+    err = decoder.Decode(polkaPost)
     if err != nil {
         respondWithError(w, http.StatusInternalServerError, "unable to unmarshal JSON", err)
         return
