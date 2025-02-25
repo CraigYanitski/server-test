@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -118,6 +119,13 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
     for _, item := range chirps {
         items = append(items, Chirp(item))
     }
+
+    // reorder as needed
+    sort := r.URL.Query().Get("sort")
+    if sort == "desc" {
+        slices.Reverse(items)
+    }
+
     respondWithJSON(w, http.StatusOK, items)
     return
 }
