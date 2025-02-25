@@ -87,19 +87,9 @@ func CleanChirpBody(body string) string {
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
-    // check if single chirp specified and call appropriate function
-    //id := r.PathValue("chirp_id")
-    //if id != "" {
-    //    chirpID, err := uuid.Parse(id)
-    //    if err != nil {
-    //        respondWithError(w, http.StatusInternalServerError, "invalid chirp ID", err)
-    //        return
-    //    }
-    //    cfg.getSingleChirp(w, r, chirpID)
-    //    return
-    //}
-
     // define slice of chirps otherwise
+    var err error
+    var chirps []database.Chirp
     items := []Chirp{}
 
     // check if user is specified
@@ -110,25 +100,21 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
             respondWithError(w, http.StatusInternalServerError, "unable to convert given user_id to UUID", err)
             return
         }
-        userChirps, err := cfg.dbQueries.GetChirpsByUser(r.Context(), userID)
+        chirps, err = cfg.dbQueries.GetChirpsByUser(r.Context(), userID)
         if err != nil {
             respondWithError(w, http.StatusNotFound, fmt.Sprintf("%s chirps not found", userID), err)
             return
         }
-        
-        for _, item := range userChirps {
-            items = append(items, Chirp(item))
+    } else {
+        // otherwise return chirps ordered by time
+        chirps, err = cfg.dbQueries.GetChirps(r.Context())
+        if err != nil {
+            respondWithError(w, http.StatusInternalServerError, "error getting chirp data", err)
+            return
         }
-        respondWithJSON(w, http.StatusOK, items)
-        return
     }
 
-    // otherwise return chirps ordered by time
-    chirps, err := cfg.dbQueries.GetChirps(r.Context())
-    if err != nil {
-        respondWithError(w, http.StatusInternalServerError, "error getting chirp data", err)
-        return
-    }
+    // recast the slice of chirps
     for _, item := range chirps {
         items = append(items, Chirp(item))
     }
